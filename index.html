@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+  <meta name="theme-color" content="#111827">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Waypoint Map">
+  <link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href="icons/icon-192.png">
+  <link rel="stylesheet" href="style.css">
+  <title>Waypoint Map</title>
+</head>
+<body>
+  <header class="topbar">
+    <div>
+      <div class="brand">Waypoint Map</div>
+      <div id="projectTitle" class="subtitle">No project loaded</div>
+    </div>
+    <button id="projectsBtn" class="iconBtn" aria-label="Projects">☰</button>
+  </header>
+
+  <main>
+    <section id="emptyState" class="emptyState">
+      <div class="heroPin">●</div>
+      <h1>Map + photo waypoints</h1>
+      <p>Import an image or PDF, place red markers, and attach photos to each location.</p>
+      <button id="newProjectBtn" class="primary">Create Project</button>
+    </section>
+
+    <section id="mapSection" class="mapSection hidden">
+      <div class="toolbar">
+        <button id="addMarkerBtn" class="primary small">＋ Marker</button>
+        <button id="editBtn" class="secondary small">Edit</button>
+        <button id="fitBtn" class="secondary small">Fit</button>
+        <button id="exportBtn" class="secondary small">Export</button>
+      </div>
+      <div id="mapViewport" class="mapViewport">
+        <div id="mapStage" class="mapStage">
+          <img id="mapImage" alt="Project map">
+          <canvas id="pdfCanvas" class="hidden"></canvas>
+          <div id="markerLayer"></div>
+        </div>
+      </div>
+      <div id="statusBar" class="statusBar">Tap Marker, then tap the map.</div>
+    </section>
+  </main>
+
+  <input id="mapFile" type="file" accept="image/*,application/pdf" hidden>
+  <input id="photoFile" type="file" accept="image/*" multiple hidden>
+  <input id="importFile" type="file" accept=".json,.waypoint.json,application/json" hidden>
+
+  <dialog id="projectDialog">
+    <form method="dialog" class="dialog">
+      <h2>New Project</h2>
+      <label>Project name
+        <input id="projectName" required maxlength="80" placeholder="Building Inspection">
+      </label>
+      <button id="chooseMapBtn" type="button" class="primary">Choose Image or PDF</button>
+      <div id="selectedMap" class="fileName"></div>
+      <div class="dialogActions">
+        <button value="cancel" class="secondary">Cancel</button>
+        <button id="createBtn" value="default" class="primary" disabled>Create</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="markerDialog">
+    <form method="dialog" class="dialog">
+      <h2 id="markerDialogTitle">Waypoint</h2>
+      <label>Name
+        <input id="markerName" maxlength="80" placeholder="Electrical panel">
+      </label>
+      <label>Notes
+        <textarea id="markerNotes" rows="4" maxlength="1000" placeholder="Optional notes"></textarea>
+      </label>
+      <div id="photoGrid" class="photoGrid"></div>
+      <div class="dialogActions">
+        <button id="deleteMarkerBtn" type="button" class="danger">Delete</button>
+        <span class="spacer"></span>
+        <button value="cancel" class="secondary">Close</button>
+        <button id="saveMarkerBtn" value="default" class="primary">Save</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="projectsDialog">
+    <div class="dialog">
+      <h2>Projects</h2>
+      <div id="projectList"></div>
+      <div class="dialogActions">
+        <button id="importBtn" class="secondary">Import</button>
+        <button id="newFromListBtn" class="primary">New Project</button>
+      </div>
+    </div>
+  </dialog>
+
+  <dialog id="photoDialog" class="photoDialog">
+    <div class="photoViewer">
+      <button id="closePhotoBtn" class="closePhoto">×</button>
+      <img id="largePhoto" alt="Waypoint photo">
+    </div>
+  </dialog>
+
+  <script src="app.js" type="module"></script>
+</body>
+</html>
