@@ -9,8 +9,8 @@ const state = {
   project: null,
   projects: [],
   placing: false,
+  isEditMode: true, // Toggles between Edit and View modes
   selectedMarkerId: null,
-  editing: false,
   tempMap: null,
   pdf: null,
   pdfPage: 1,
@@ -125,9 +125,8 @@ async function openProject(id) {
   if (!project) return;
   
   state.project = project;
-  togglePlacing(false);
+  toggleMode(true); // Default to Edit Mode when opening
   state.selectedMarkerId = null;
-  state.editing = false;
   
   $("projectTitle").textContent = project.name;
   emptyState.classList.add("hidden");
@@ -159,7 +158,7 @@ async function renderBase() {
       applyScale();
       
       mapImage.classList.remove("hidden");
-      $("fitBtn").click(); // Auto-fit on load
+      $("fitBtn").click(); 
     };
   } else {
     await renderPDF();
@@ -203,11 +202,35 @@ async function renderPDFPage(pageNo) {
   pdfCanvas.classList.remove("hidden");
   
   await page.render({ canvasContext: pdfCanvas.getContext("2d"), viewport }).promise;
-  $("fitBtn").click(); // Auto-fit on load
+  $("fitBtn").click(); 
 }
 
-// --- Marker Management ---
+// --- Application Modes (Edit/View) & Markers ---
+function toggleMode(forceEdit) {
+  state.isEditMode = forceEdit !== undefined ? forceEdit : !state.isEditMode;
+  
+  const editBtn = $("editBtn");
+  const addBtn = $("addMarkerBtn");
+  
+  if (state.isEditMode) {
+    editBtn.textContent = "Mode: Edit";
+    editBtn.classList.add("primary");
+    editBtn.classList.remove("secondary");
+    addBtn.classList.remove("hidden");
+    setStatus("Edit Mode: Tap a marker to edit, or use + Marker to add one.");
+  } else {
+    editBtn.textContent = "Mode: View";
+    editBtn.classList.add("secondary");
+    editBtn.classList.remove("primary");
+    addBtn.classList.add("hidden");
+    if (state.placing) togglePlacing(false);
+    setStatus("View Mode: Tap a marker to view details and photos.");
+  }
+}
+
 function togglePlacing(force) {
+  if (!state.isEditMode) return;
+  
   state.placing = force !== undefined ? force : !state.placing;
   mapViewport.classList.toggle("placing", state.placing);
   const btn = $("addMarkerBtn");
@@ -221,7 +244,7 @@ function togglePlacing(force) {
     btn.textContent = "＋ Marker";
     btn.classList.add("primary");
     btn.classList.remove("danger");
-    setStatus("Tap a marker to view/edit it. Use + Marker to add one.");
+    setStatus("Edit Mode: Tap a marker to edit, or use + Marker to add one.");
   }
 }
 
@@ -250,7 +273,7 @@ function renderMarkers() {
 }
 
 function addMarkerAt(e) {
-  if (!state.placing) return;
+  if (!state.placing || !state.isEditMode) return;
   
   const rect = mapStage.getBoundingClientRect();
   const x = (e.clientX - rect.left) / rect.width;
@@ -278,8 +301,18 @@ function openMarker(id) {
   
   state.selectedMarkerId = id;
   $("markerDialogTitle").textContent = marker.name || "Waypoint";
+  
+  // Set values
   $("markerName").value = marker.name || "";
   $("markerNotes").value = marker.notes || "";
+  
+  // Lock or unlock inputs based on mode
+  $("markerName").readOnly = !state.isEditMode;
+  $("markerNotes").readOnly = !state.isEditMode;
+  
+  // Hide or show action buttons based on mode
+  $("saveMarkerBtn").classList.toggle("hidden", !state.isEditMode);
+  $("deleteMarkerBtn").classList.toggle("hidden", !state.isEditMode);
   
   renderPhotos(marker);
   $("markerDialog").showModal();
@@ -296,24 +329,31 @@ function renderPhotos(marker) {
     const img = document.createElement("img");
     img.src = photo.data;
     img.onclick = () => showPhoto(photo.data);
+    wrapper.append(img);
     
-    const deleteBtn = document.createElement("button");
-    deleteBtn.type = "button";
-    deleteBtn.textContent = "×";
-    deleteBtn.onclick = () => {
-      marker.photos.splice(i, 1);
-      renderPhotos(marker);
-    };
+    // Only show delete buttons in Edit Mode
+    if (state.isEditMode) {
+      const deleteBtn = document.createElement("button");
+      deleteBtn.type = "button";
+      deleteBtn.textContent = "×";
+      deleteBtn.onclick = () => {
+        marker.photos.splice(i, 1);
+        renderPhotos(marker);
+      };
+      wrapper.append(deleteBtn);
+    }
     
-    wrapper.append(img, deleteBtn);
     grid.append(wrapper);
   });
   
-  const addBtn = document.createElement("div");
-  addBtn.className = "photoThumb addPhoto";
-  addBtn.textContent = "＋ Photo";
-  addBtn.onclick = () => $("photoFile").click();
-  grid.append(addBtn);
+  // Only show Add Photo button in Edit Mode
+  if (state.isEditMode) {
+    const addBtn = document.createElement("div");
+    addBtn.className = "photoThumb addPhoto";
+    addBtn.textContent = "＋ Photo";
+    addBtn.onclick = () => $("photoFile").click();
+    grid.append(addBtn);
+  }
 }
 
 function showPhoto(src) {
@@ -321,12 +361,14 @@ function showPhoto(src) {
   $("photoDialog").showModal();
 }
 
-// --- Pinch to Zoom ---
+// --- Pinch to Zoom (Focal Point) ---
 let pinchStartDist = 0;
 let pinchStartScale = 1;
+let isPinching = false;
 
 mapViewport.addEventListener('touchstart', (e) => {
   if (e.touches.length === 2) {
+    isPinching = true;
     pinchStartDist = Math.hypot(
       e.touches[0].clientX - e.touches[1].clientX,
       e.touches[0].clientY - e.touches[1].clientY
@@ -336,8 +378,22 @@ mapViewport.addEventListener('touchstart', (e) => {
 }, { passive: false });
 
 mapViewport.addEventListener('touchmove', (e) => {
-  if (e.touches.length === 2) {
+  if (e.touches.length === 2 && isPinching) {
     e.preventDefault(); // Stop native scrolling during pinch
+    
+    // Find the center pixel between the two fingers
+    const centerX = (e.touches[0].clientX + e.touches[1].clientX) / 2;
+    const centerY = (e.touches[0].clientY + e.touches[1].clientY) / 2;
+    
+    const rect = mapViewport.getBoundingClientRect();
+    const px = centerX - rect.left; // Finger X relative to viewport
+    const py = centerY - rect.top;  // Finger Y relative to viewport
+    
+    // Calculate what exact map coordinate is currently under the center of the fingers
+    const mapX = (px + mapViewport.scrollLeft) / state.scale;
+    const mapY = (py + mapViewport.scrollTop) / state.scale;
+
+    // Calculate the new scale based on pinch distance
     const dist = Math.hypot(
       e.touches[0].clientX - e.touches[1].clientX,
       e.touches[0].clientY - e.touches[1].clientY
@@ -345,10 +401,21 @@ mapViewport.addEventListener('touchmove', (e) => {
     let newScale = pinchStartScale * (dist / pinchStartDist);
     newScale = Math.max(0.1, Math.min(newScale, 10)); // Min 0.1x, Max 10x zoom
     
+    // Apply the scale
     state.scale = newScale;
     applyScale();
+    
+    // Immediately counter-scroll so the calculated map coordinate stays under the fingers
+    mapViewport.scrollLeft = (mapX * state.scale) - px;
+    mapViewport.scrollTop = (mapY * state.scale) - py;
   }
 }, { passive: false });
+
+mapViewport.addEventListener('touchend', (e) => {
+  if (e.touches.length < 2) {
+    isPinching = false;
+  }
+});
 
 
 // --- Event Listeners ---
@@ -391,15 +458,8 @@ $("createBtn").onclick = async (e) => {
   openProject(project.id);
 };
 
+$("editBtn").onclick = () => toggleMode();
 $("addMarkerBtn").onclick = () => togglePlacing();
-
-$("editBtn").onclick = () => {
-  if (state.project) {
-    $("projectName").value = state.project.name;
-    state.tempMap = null;
-    alert("Project editing will be expanded in the next version. Marker editing is available by tapping a marker.");
-  }
-};
 
 $("fitBtn").onclick = () => {
   const padding = 40;
@@ -441,6 +501,7 @@ $("importFile").onchange = async () => {
 };
 
 $("photoFile").onchange = async () => {
+  if (!state.isEditMode) return;
   const marker = state.project?.markers.find(x => x.id === state.selectedMarkerId);
   if (!marker) return;
   
@@ -459,6 +520,8 @@ $("photoFile").onchange = async () => {
 
 $("saveMarkerBtn").onclick = async (e) => {
   e.preventDefault();
+  if (!state.isEditMode) return;
+  
   const marker = state.project.markers.find(x => x.id === state.selectedMarkerId);
   if (!marker) return;
   
@@ -473,6 +536,8 @@ $("saveMarkerBtn").onclick = async (e) => {
 };
 
 $("deleteMarkerBtn").onclick = async () => {
+  if (!state.isEditMode) return;
+  
   const index = state.project.markers.findIndex(x => x.id === state.selectedMarkerId);
   if (index < 0) return;
   if (!confirm("Delete this waypoint and all photos attached to it?")) return;
