@@ -13,7 +13,10 @@ const state = {
   editing: false,
   tempMap: null,
   pdf: null,
-  pdfPage: 1
+  pdfPage: 1,
+  baseWidth: 0,
+  baseHeight: 0,
+  scale: 1
 };
 
 // --- DOM Utilities ---
@@ -35,14 +38,12 @@ const esc = (s) => String(s || "").replace(/[&<>"']/g, c => ({"&": "&amp;", "<":
 function openDB() {
   return new Promise((resolve, reject) => {
     const request = indexedDB.open(DB_NAME, DB_VERSION);
-    
     request.onupgradeneeded = () => {
       const db = request.result;
       if (!db.objectStoreNames.contains("projects")) {
         db.createObjectStore("projects", { keyPath: "id" });
       }
     };
-    
     request.onsuccess = () => resolve(request.result);
     request.onerror = () => reject(request.error);
   });
@@ -94,12 +95,10 @@ function newProject() {
 function renderProjectList() {
   const list = $("projectList");
   list.innerHTML = "";
-  
   if (!state.projects.length) {
     list.innerHTML = "<p class='fileName'>No saved projects.</p>";
     return;
   }
-  
   state.projects.sort((a, b) => b.updated.localeCompare(a.updated)).forEach(project => {
     const row = document.createElement("div");
     row.className = "projectItem";
@@ -109,7 +108,6 @@ function renderProjectList() {
         <div class="fileName">${project.markers.length} marker${project.markers.length === 1 ? "" : "s"}</div>
       </div>
     `;
-    
     const openBtn = document.createElement("button");
     openBtn.className = "secondary";
     openBtn.textContent = "Open";
@@ -117,7 +115,6 @@ function renderProjectList() {
       $("projectsDialog").close();
       openProject(project.id);
     };
-    
     row.append(openBtn);
     list.append(row);
   });
@@ -128,7 +125,7 @@ async function openProject(id) {
   if (!project) return;
   
   state.project = project;
-  state.placing = false;
+  togglePlacing(false);
   state.selectedMarkerId = null;
   state.editing = false;
   
@@ -138,10 +135,14 @@ async function openProject(id) {
   
   await renderBase();
   renderMarkers();
-  setStatus("Tap a marker to view/edit it. Use + Marker to add one.");
 }
 
 // --- Map & PDF Rendering ---
+function applyScale() {
+  mapStage.style.width = (state.baseWidth * state.scale) + "px";
+  mapStage.style.height = (state.baseHeight * state.scale) + "px";
+}
+
 async function renderBase() {
   mapImage.classList.add("hidden");
   pdfCanvas.classList.add("hidden");
@@ -149,9 +150,16 @@ async function renderBase() {
   if (state.project.mapType === "image") {
     mapImage.src = state.project.mapData;
     mapImage.onload = () => {
-      mapStage.style.width = mapImage.naturalWidth + "px";
-      mapStage.style.height = mapImage.naturalHeight + "px";
+      state.baseWidth = mapImage.naturalWidth;
+      state.baseHeight = mapImage.naturalHeight;
+      state.scale = 1;
+      
+      mapImage.style.width = "100%";
+      mapImage.style.height = "100%";
+      applyScale();
+      
       mapImage.classList.remove("hidden");
+      $("fitBtn").click(); // Auto-fit on load
     };
   } else {
     await renderPDF();
@@ -164,13 +172,11 @@ async function renderPDF() {
       setStatus("PDF engine is unavailable.");
       return;
     }
-    
     const data = atob(state.project.mapData.split(",")[1]);
     const arr = new Uint8Array(data.length);
     for (let i = 0; i < data.length; i++) {
       arr[i] = data.charCodeAt(i);
     }
-    
     const loading = window.pdfjsLib.getDocument({ data: arr });
     state.pdf = await loading.promise;
     await renderPDFPage(state.pdfPage);
@@ -184,16 +190,41 @@ async function renderPDFPage(pageNo) {
   const page = await state.pdf.getPage(pageNo);
   const viewport = page.getViewport({ scale: 1.5 });
   
+  state.baseWidth = viewport.width;
+  state.baseHeight = viewport.height;
+  state.scale = 1;
+  
   pdfCanvas.width = viewport.width;
   pdfCanvas.height = viewport.height;
-  mapStage.style.width = viewport.width + "px";
-  mapStage.style.height = viewport.height + "px";
+  pdfCanvas.style.width = "100%";
+  pdfCanvas.style.height = "100%";
+  
+  applyScale();
   pdfCanvas.classList.remove("hidden");
   
   await page.render({ canvasContext: pdfCanvas.getContext("2d"), viewport }).promise;
+  $("fitBtn").click(); // Auto-fit on load
 }
 
 // --- Marker Management ---
+function togglePlacing(force) {
+  state.placing = force !== undefined ? force : !state.placing;
+  mapViewport.classList.toggle("placing", state.placing);
+  const btn = $("addMarkerBtn");
+  
+  if (state.placing) {
+    btn.textContent = "Cancel Marker";
+    btn.classList.add("danger");
+    btn.classList.remove("primary");
+    setStatus("Tap the exact location on the map. Tap Cancel to abort.");
+  } else {
+    btn.textContent = "＋ Marker";
+    btn.classList.add("primary");
+    btn.classList.remove("danger");
+    setStatus("Tap a marker to view/edit it. Use + Marker to add one.");
+  }
+}
+
 function renderMarkers() {
   markerLayer.innerHTML = "";
   (state.project?.markers || []).forEach(marker => {
@@ -228,21 +259,14 @@ function addMarkerAt(e) {
   if (x < 0 || x > 1 || y < 0 || y > 1) return;
   
   const newMarker = { 
-    id: uid(), 
-    x, 
-    y, 
-    name: "", 
-    notes: "", 
-    photos: [], 
-    created: now(), 
-    updated: now() 
+    id: uid(), x, y, name: "", notes: "", photos: [], 
+    created: now(), updated: now() 
   };
   
   state.project.markers.push(newMarker);
   state.project.updated = now();
-  state.placing = false;
-  mapViewport.classList.remove("placing");
   
+  togglePlacing(false);
   renderMarkers();
   dbPut(state.project);
   openMarker(newMarker.id);
@@ -297,6 +321,36 @@ function showPhoto(src) {
   $("photoDialog").showModal();
 }
 
+// --- Pinch to Zoom ---
+let pinchStartDist = 0;
+let pinchStartScale = 1;
+
+mapViewport.addEventListener('touchstart', (e) => {
+  if (e.touches.length === 2) {
+    pinchStartDist = Math.hypot(
+      e.touches[0].clientX - e.touches[1].clientX,
+      e.touches[0].clientY - e.touches[1].clientY
+    );
+    pinchStartScale = state.scale;
+  }
+}, { passive: false });
+
+mapViewport.addEventListener('touchmove', (e) => {
+  if (e.touches.length === 2) {
+    e.preventDefault(); // Stop native scrolling during pinch
+    const dist = Math.hypot(
+      e.touches[0].clientX - e.touches[1].clientX,
+      e.touches[0].clientY - e.touches[1].clientY
+    );
+    let newScale = pinchStartScale * (dist / pinchStartDist);
+    newScale = Math.max(0.1, Math.min(newScale, 10)); // Min 0.1x, Max 10x zoom
+    
+    state.scale = newScale;
+    applyScale();
+  }
+}, { passive: false });
+
+
 // --- Event Listeners ---
 $("newProjectBtn").onclick = newProject;
 $("newFromListBtn").onclick = () => { $("projectsDialog").close(); newProject(); };
@@ -337,11 +391,7 @@ $("createBtn").onclick = async (e) => {
   openProject(project.id);
 };
 
-$("addMarkerBtn").onclick = () => {
-  state.placing = !state.placing;
-  mapViewport.classList.toggle("placing", state.placing);
-  setStatus(state.placing ? "Tap the exact location on the map. Tap + Marker again to cancel." : "Marker placement cancelled.");
-};
+$("addMarkerBtn").onclick = () => togglePlacing();
 
 $("editBtn").onclick = () => {
   if (state.project) {
@@ -352,6 +402,12 @@ $("editBtn").onclick = () => {
 };
 
 $("fitBtn").onclick = () => {
+  const padding = 40;
+  const scaleX = (mapViewport.clientWidth - padding) / state.baseWidth;
+  const scaleY = (mapViewport.clientHeight - padding) / state.baseHeight;
+  
+  state.scale = Math.min(scaleX, scaleY, 1); 
+  applyScale();
   $("mapViewport").scrollTo({ top: 0, left: 0, behavior: "smooth" });
 };
 
