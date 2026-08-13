@@ -1,11 +1,14 @@
 // --- Explicit Close Handlers ---
-document.querySelectorAll('button[value="cancel"]').forEach(btn => {
-  btn.type = "button"; // Forces Safari to ignore form submission entirely
-  btn.onclick = (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    btn.closest("dialog").close();
-  };
+document.addEventListener("click", (e) => {
+  const btn = e.target.closest('button[value="cancel"]');
+  if (!btn) return;
+  
+  // Prevent any native form submission/validation logic
+  e.preventDefault();
+  e.stopPropagation();
+  
+  const dialog = btn.closest("dialog");
+  if (dialog) dialog.close();
 });
 
 $("closePhotoBtn").onclick = () => $("photoDialog").close();
