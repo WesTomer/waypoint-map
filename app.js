@@ -1,39 +1,48 @@
-// --- Debug Logger ---
-function debugLog(info) {
-  let debugDiv = $("debugDiv");
-  if (!debugDiv) {
-    debugDiv = document.createElement("div");
-    debugDiv.id = "debugDiv";
-    debugDiv.style.cssText = "position:fixed;bottom:10px;right:10px;background:#222;color:#fff;padding:10px;z-index:9999;border-radius:8px;width:300px;box-shadow: 0 4px 12px rgba(0,0,0,0.5);";
+// --- Explicit Close Handlers & Debugger ---
+document.addEventListener("click", (e) => {
+  // 1. Debugger: Log ANY click inside a dialog to see what is actually happening
+  const dialog = e.target.closest("dialog");
+  if (dialog && e.target.tagName !== "DIALOG") {
+    const el = e.target;
+    const info = `Target: <${el.tagName.toLowerCase()}>
+ID: "${el.id}"
+Class: "${el.className}"
+Value: "${el.value || 'undefined'}"
+Type: "${el.type || 'undefined'}"
+Text: "${el.textContent.trim().substring(0, 20)}"
+Mode: ${state.isEditMode ? 'Edit' : 'View'}`;
     
-    const textArea = document.createElement("textarea");
-    textArea.id = "debugText";
-    textArea.style.cssText = "width:100%;height:150px;background:#111;color:#0f0;border:1px solid #444;font-family:monospace;font-size:11px;margin-bottom:8px;resize:vertical;";
-    
-    const copyBtn = document.createElement("button");
-    copyBtn.textContent = "Copy to Clipboard";
-    copyBtn.style.cssText = "width:100%;padding:8px;background:#007BFF;color:white;border:none;border-radius:4px;cursor:pointer;";
-    copyBtn.onclick = () => {
-      navigator.clipboard.writeText(textArea.value).then(() => {
-        copyBtn.textContent = "Copied!";
-        copyBtn.style.background = "#28A745";
-        setTimeout(() => {
-          copyBtn.textContent = "Copy to Clipboard";
-          copyBtn.style.background = "#007BFF";
-        }, 2000);
-      });
-    };
-    
-    const closeBtn = document.createElement("button");
-    closeBtn.textContent = "×";
-    closeBtn.style.cssText = "position:absolute;top:5px;right:5px;background:red;color:white;border:none;border-radius:50%;width:20px;height:20px;cursor:pointer;line-height:1;";
-    closeBtn.onclick = () => debugDiv.remove();
-
-    debugDiv.append(closeBtn, textArea, copyBtn);
-    document.body.appendChild(debugDiv);
+    debugLog(info);
   }
+
+  // 2. The actual close logic
+  const btn = e.target.closest('button[value="cancel"]') || e.target.closest('.close-btn'); 
   
-  const ta = $("debugText");
-  const timestamp = new Date().toLocaleTimeString();
-  ta.value = `[${timestamp}]\n${info}\n\n` + "------------------------\n" + ta.value;
+  if (btn) {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    const parentDialog = btn.closest("dialog");
+    if (parentDialog) {
+      debugLog("SUCCESS: Close button matched and dialog.close() fired.");
+      parentDialog.close();
+    } else {
+      debugLog("ERROR: Close button matched, but no parent <dialog> found.");
+    }
+  }
+}, true); // The 'true' activates the capture phase
+
+$("closePhotoBtn").onclick = () => $("photoDialog").close();
+$("mapViewport").onclick = addMarkerAt;
+mapImage.ondblclick = (e) => e.preventDefault();
+
+// --- Initialization ---
+if ("serviceWorker" in navigator && location.protocol.startsWith("http")) {
+  navigator.serviceWorker.register("service-worker.js").catch(console.warn);
 }
+
+loadProjects().then(() => {
+  if (state.projects.length) {
+    openProject(state.projects.sort((a, b) => b.updated.localeCompare(a.updated))[0].id);
+  }
+}).catch(console.error);
