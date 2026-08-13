@@ -550,6 +550,17 @@ $("deleteMarkerBtn").onclick = async () => {
   renderMarkers();
 };
 
+// --- Explicit Close Handlers ---
+document.querySelector('#markerDialog button[value="cancel"]').onclick = (e) => {
+  e.preventDefault();
+  $("markerDialog").close();
+};
+
+document.querySelector('#projectDialog button[value="cancel"]').onclick = (e) => {
+  e.preventDefault();
+  $("projectDialog").close();
+};
+
 $("closePhotoBtn").onclick = () => $("photoDialog").close();
 $("mapViewport").onclick = addMarkerAt;
 mapImage.ondblclick = (e) => e.preventDefault();
