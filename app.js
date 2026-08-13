@@ -1,15 +1,46 @@
 // --- Explicit Close Handlers ---
+function closeDialogFromButton(btn) {
+  if (!btn) return false;
+
+  // Edit-mode buttons are inside their dialog. Some view-mode waypoint
+  // controls can be rendered outside it, so also support aria-controls.
+  let dialog = btn.closest("dialog");
+  const controlledId = btn.getAttribute("aria-controls");
+
+  if (!dialog && controlledId) {
+    const controlledElement = document.getElementById(controlledId);
+    if (controlledElement instanceof HTMLDialogElement) {
+      dialog = controlledElement;
+    }
+  }
+
+  // Final waypoint-specific fallback for the view-mode popup.
+  if (!dialog && btn.matches('[data-close="waypoint"], [data-action="close-waypoint"]')) {
+    dialog = document.querySelector(
+      'dialog[data-dialog="waypoint"][open], #waypointDialog[open], #viewWaypointDialog[open]'
+    );
+  }
+
+  if (!dialog || !(dialog instanceof HTMLDialogElement)) return false;
+  dialog.close("cancel");
+  return true;
+}
+
+// Capture the click before map/view-mode handlers can consume it.
 document.addEventListener("click", (e) => {
-  const btn = e.target.closest('button[value="cancel"]');
+  const target = e.target;
+  if (!(target instanceof Element)) return;
+
+  const btn = target.closest(
+    'button[value="cancel"], button[data-close="waypoint"], button[data-action="close-waypoint"]'
+  );
   if (!btn) return;
-  
-  // Prevent any native form submission/validation logic
+
   e.preventDefault();
   e.stopPropagation();
-  
-  const dialog = btn.closest("dialog");
-  if (dialog) dialog.close();
-});
+  e.stopImmediatePropagation();
+  closeDialogFromButton(btn);
+}, true);
 
 $("closePhotoBtn").onclick = () => $("photoDialog").close();
 $("mapViewport").onclick = addMarkerAt;
