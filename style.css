@@ -1,1 +1,652 @@
-*{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display",Arial,sans-serif;background:#f3f4f6;color:#111827}button,input,textarea{font:inherit}button{border:0;touch-action:manipulation}.topbar{height:calc(58px + env(safe-area-inset-top));padding:env(safe-area-inset-top) 14px 8px;display:flex;align-items:flex-end;justify-content:space-between;background:#111827;color:white}.brand{font-size:20px;font-weight:700}.subtitle{font-size:12px;color:#cbd5e1;margin-top:2px;max-width:75vw;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.iconBtn{background:#374151;color:#fff;border-radius:10px;width:40px;height:40px;font-size:22px}.emptyState{height:calc(100vh - 58px - env(safe-area-inset-top));display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:32px}.emptyState h1{margin:14px 0 8px;font-size:28px}.emptyState p{max-width:420px;color:#6b7280;line-height:1.5}.heroPin{width:70px;height:70px;border-radius:50%;background:#dc2626;color:white;display:grid;place-items:center;font-size:40px;box-shadow:0 8px 24px #0002}.primary,.secondary,.danger{border-radius:12px;padding:11px 16px;font-weight:650}.primary{background:#dc2626;color:white}.secondary{background:#e5e7eb;color:#111827}.danger{background:#fee2e2;color:#b91c1c}.small{padding:8px 12px;border-radius:10px}.mapSection{height:calc(100vh - 58px - env(safe-area-inset-top));display:flex;flex-direction:column}.toolbar{display:flex;gap:7px;padding:8px;background:white;border-bottom:1px solid #e5e7eb;overflow-x:auto}.mapViewport{position:relative;flex:1;overflow:auto;background:#9ca3af;overscroll-behavior:none}.mapStage{position:relative;display:block;margin:0 auto;transform-origin:top left}.mapStage>img,.mapStage>canvas{display:block;max-width:none}.mapStage>img{width:auto;height:auto}.mapStage canvas{position:absolute;left:0;top:0}.mapStage img{visibility:hidden}.marker{position:absolute;width:26px;height:26px;border-radius:50% 50% 50% 0;background:#dc2626;border:3px solid white;box-shadow:0 2px 7px #0008;transform:translate(-50%,-100%) rotate(-45deg);z-index:5;cursor:pointer}.marker::after{content:"";position:absolute;width:8px;height:8px;background:white;border-radius:50%;left:6px;top:6px}.markerLabel{position:absolute;left:16px;top:-8px;transform:rotate(45deg);background:#111827;color:white;border-radius:8px;padding:2px 6px;font-size:11px;white-space:nowrap;pointer-events:none}.placing{cursor:crosshair!important}.statusBar{height:30px;background:#111827;color:#e5e7eb;font-size:12px;display:flex;align-items:center;padding:0 10px}.hidden{display:none!important}.dialog{min-width:min(92vw,430px);padding:20px}.dialog h2{margin:0 0 16px}.dialog label{display:block;font-size:13px;font-weight:650;margin:12px 0}.dialog input,.dialog textarea{display:block;width:100%;margin-top:6px;border:1px solid #d1d5db;border-radius:10px;padding:10px;background:white}.dialogActions{display:flex;align-items:center;gap:8px;margin-top:18px}.spacer{flex:1}.fileName{font-size:12px;color:#6b7280;margin-top:8px;word-break:break-all}.photoGrid{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin-top:10px}.photoThumb{position:relative;aspect-ratio:1;overflow:hidden;border-radius:9px;background:#e5e7eb}.photoThumb img{width:100%;height:100%;object-fit:cover}.photoThumb button{position:absolute;right:3px;top:3px;width:24px;height:24px;border-radius:50%;background:#111827cc;color:white}.addPhoto{display:grid;place-items:center;border:2px dashed #cbd5e1;color:#6b7280;cursor:pointer}.projectItem{display:flex;justify-content:space-between;align-items:center;padding:12px 0;border-bottom:1px solid #e5e7eb}.projectItem button{padding:8px 10px}.photoDialog{padding:0;border:0;background:#000}.photoDialog::backdrop{background:#000}.photoViewer{width:100vw;height:100vh;display:grid;place-items:center;position:relative}.photoViewer img{max-width:100vw;max-height:100vh;object-fit:contain}.closePhoto{position:absolute;right:18px;top:calc(18px + env(safe-area-inset-top));z-index:3;background:#ffffff33;color:white;border-radius:50%;width:42px;height:42px;font-size:30px}dialog{border:0;border-radius:16px;padding:0;box-shadow:0 18px 60px #0005}dialog::backdrop{background:#0008}@media(min-width:700px){.mapViewport{display:flex;justify-content:center}.mapStage{margin:auto}}
+/* Waypoint Map - Complete drop-in stylesheet */
+
+:root {
+  color-scheme: light;
+  --bg: #f3f4f6;
+  --surface: #ffffff;
+  --surface-muted: #e5e7eb;
+  --text: #111827;
+  --text-muted: #6b7280;
+  --border: #d1d5db;
+  --border-soft: #e5e7eb;
+  --topbar: #111827;
+  --topbar-muted: #cbd5e1;
+  --accent: #dc2626;
+  --accent-hover: #b91c1c;
+  --danger-bg: #fee2e2;
+  --danger-text: #b91c1c;
+  --focus: #2563eb;
+  --viewport: #9ca3af;
+  --radius-sm: 9px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --shadow-sm: 0 2px 7px rgb(0 0 0 / 45%);
+  --shadow-lg: 0 18px 60px rgb(0 0 0 / 35%);
+  --topbar-content-height: 58px;
+  --statusbar-height: 30px;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", Arial, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  min-height: 100dvh;
+}
+
+button,
+input,
+textarea {
+  font: inherit;
+}
+
+button {
+  border: 0;
+  touch-action: manipulation;
+  cursor: pointer;
+  transition: background-color 140ms ease, color 140ms ease, opacity 140ms ease, transform 80ms ease;
+  -webkit-tap-highlight-color: transparent;
+}
+
+button:hover:not(:disabled) {
+  filter: brightness(0.97);
+}
+
+button:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+button:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+.photoThumb:focus-visible {
+  outline: 3px solid color-mix(in srgb, var(--focus) 45%, transparent);
+  outline-offset: 2px;
+}
+
+.topbar {
+  min-height: calc(var(--topbar-content-height) + env(safe-area-inset-top));
+  padding: env(safe-area-inset-top) 14px 8px;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+  background: var(--topbar);
+  color: #ffffff;
+}
+
+.brand {
+  min-width: 0;
+  font-size: 20px;
+  font-weight: 700;
+  line-height: 1.15;
+}
+
+.subtitle {
+  max-width: 75vw;
+  margin-top: 2px;
+  overflow: hidden;
+  color: var(--topbar-muted);
+  font-size: 12px;
+  line-height: 1.3;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.iconBtn {
+  flex: 0 0 auto;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border-radius: 10px;
+  background: #374151;
+  color: #ffffff;
+  font-size: 22px;
+  display: inline-grid;
+  place-items: center;
+}
+
+.emptyState {
+  height: calc(100vh - var(--topbar-content-height) - env(safe-area-inset-top));
+  height: calc(100dvh - var(--topbar-content-height) - env(safe-area-inset-top));
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 32px;
+  overflow: auto;
+  text-align: center;
+}
+
+.emptyState h1 {
+  margin: 14px 0 8px;
+  font-size: clamp(24px, 6vw, 28px);
+}
+
+.emptyState p {
+  max-width: 420px;
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+.heroPin {
+  width: 70px;
+  height: 70px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: #ffffff;
+  display: grid;
+  place-items: center;
+  font-size: 40px;
+  box-shadow: 0 8px 24px rgb(0 0 0 / 13%);
+}
+
+.primary,
+.secondary,
+.danger {
+  min-height: 42px;
+  border-radius: var(--radius-md);
+  padding: 11px 16px;
+  font-weight: 650;
+  white-space: nowrap;
+}
+
+.primary {
+  background: var(--accent);
+  color: #ffffff;
+}
+
+.primary:hover:not(:disabled) {
+  background: var(--accent-hover);
+}
+
+.secondary {
+  background: var(--surface-muted);
+  color: var(--text);
+}
+
+.danger {
+  background: var(--danger-bg);
+  color: var(--danger-text);
+}
+
+.small {
+  min-height: 36px;
+  padding: 8px 12px;
+  border-radius: 10px;
+}
+
+.mapSection {
+  height: calc(100vh - var(--topbar-content-height) - env(safe-area-inset-top));
+  height: calc(100dvh - var(--topbar-content-height) - env(safe-area-inset-top));
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.toolbar {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border-soft);
+  scrollbar-width: thin;
+  -webkit-overflow-scrolling: touch;
+}
+
+.toolbar > * {
+  flex: 0 0 auto;
+}
+
+.mapViewport {
+  position: relative;
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+  overflow: auto;
+  background: var(--viewport);
+  overscroll-behavior: none;
+  touch-action: pan-x pan-y;
+  -webkit-overflow-scrolling: touch;
+}
+
+.mapViewport.placing {
+  cursor: crosshair !important;
+}
+
+.mapStage {
+  position: relative;
+  display: block;
+  margin: 0 auto;
+  transform-origin: top left;
+  isolation: isolate;
+}
+
+.mapStage > img,
+.mapStage > canvas {
+  display: block;
+  max-width: none;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
+/* Important fix: image maps must remain visible after .hidden is removed. */
+.mapStage > img {
+  width: 100%;
+  height: 100%;
+  visibility: visible;
+  object-fit: fill;
+}
+
+.mapStage > canvas {
+  position: absolute;
+  inset: 0 auto auto 0;
+  width: 100%;
+  height: 100%;
+}
+
+#markerLayer,
+.markerLayer {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.marker {
+  position: absolute;
+  z-index: 5;
+  width: 26px;
+  height: 26px;
+  border: 3px solid #ffffff;
+  border-radius: 50% 50% 50% 0;
+  background: var(--accent);
+  box-shadow: var(--shadow-sm);
+  cursor: pointer;
+  pointer-events: auto;
+  transform: translate(-50%, -100%) rotate(-45deg);
+  transform-origin: 50% 50%;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.marker::after {
+  content: "";
+  position: absolute;
+  left: 6px;
+  top: 6px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #ffffff;
+}
+
+.marker:hover {
+  z-index: 6;
+  filter: brightness(1.05);
+}
+
+.markerLabel {
+  position: absolute;
+  left: 16px;
+  top: -8px;
+  max-width: min(220px, 50vw);
+  overflow: hidden;
+  border-radius: 8px;
+  padding: 3px 7px;
+  background: var(--topbar);
+  color: #ffffff;
+  font-size: 11px;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  pointer-events: none;
+  transform: rotate(45deg);
+  box-shadow: 0 2px 5px rgb(0 0 0 / 20%);
+}
+
+.statusBar {
+  flex: 0 0 var(--statusbar-height);
+  min-height: var(--statusbar-height);
+  display: flex;
+  align-items: center;
+  padding: 0 10px;
+  overflow: hidden;
+  background: var(--topbar);
+  color: #e5e7eb;
+  font-size: 12px;
+  line-height: 1;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hidden {
+  display: none !important;
+}
+
+dialog {
+  max-width: calc(100vw - 24px);
+  max-height: calc(100dvh - 24px);
+  margin: auto;
+  overflow: auto;
+  border: 0;
+  border-radius: var(--radius-lg);
+  padding: 0;
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: var(--shadow-lg);
+}
+
+dialog::backdrop {
+  background: rgb(0 0 0 / 55%);
+  backdrop-filter: blur(2px);
+}
+
+.dialog {
+  width: min(92vw, 430px);
+  min-width: 0;
+  padding: 20px;
+}
+
+.dialog h2,
+.dialog h3 {
+  margin: 0 0 16px;
+}
+
+.dialog label {
+  display: block;
+  margin: 12px 0;
+  font-size: 13px;
+  font-weight: 650;
+}
+
+.dialog input,
+.dialog textarea {
+  display: block;
+  width: 100%;
+  margin-top: 6px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 10px;
+  background: #ffffff;
+  color: var(--text);
+}
+
+.dialog textarea {
+  min-height: 100px;
+  resize: vertical;
+  line-height: 1.45;
+}
+
+.dialog input[readonly],
+.dialog textarea[readonly] {
+  background: #f9fafb;
+  color: #374151;
+}
+
+.dialogActions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 18px;
+}
+
+.spacer {
+  flex: 1 1 auto;
+}
+
+.fileName {
+  margin-top: 8px;
+  color: var(--text-muted);
+  font-size: 12px;
+  word-break: break-word;
+}
+
+.photoGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 7px;
+  margin-top: 10px;
+}
+
+.photoThumb {
+  position: relative;
+  min-width: 0;
+  aspect-ratio: 1;
+  overflow: hidden;
+  border-radius: var(--radius-sm);
+  background: var(--surface-muted);
+}
+
+.photoThumb img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  cursor: pointer;
+}
+
+.photoThumb button {
+  position: absolute;
+  right: 5px;
+  top: 5px;
+  z-index: 2;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border-radius: 50%;
+  background: rgb(17 24 39 / 88%);
+  color: #ffffff;
+  font-size: 18px;
+  line-height: 28px;
+}
+
+.addPhoto {
+  display: grid;
+  place-items: center;
+  border: 2px dashed #cbd5e1;
+  color: var(--text-muted);
+  cursor: pointer;
+  text-align: center;
+}
+
+.addPhoto:hover {
+  border-color: #9ca3af;
+  background: #f3f4f6;
+}
+
+.projectItem {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border-soft);
+}
+
+.projectItem > div {
+  min-width: 0;
+}
+
+.projectItem button {
+  flex: 0 0 auto;
+  padding: 8px 10px;
+}
+
+.photoDialog {
+  width: 100vw;
+  height: 100dvh;
+  max-width: 100vw;
+  max-height: 100dvh;
+  margin: 0;
+  overflow: hidden;
+  border: 0;
+  border-radius: 0;
+  padding: 0;
+  background: #000000;
+}
+
+.photoDialog::backdrop {
+  background: #000000;
+}
+
+.photoViewer {
+  position: relative;
+  width: 100vw;
+  height: 100dvh;
+  display: grid;
+  place-items: center;
+  background: #000000;
+}
+
+.photoViewer img {
+  display: block;
+  max-width: 100vw;
+  max-height: 100dvh;
+  object-fit: contain;
+}
+
+.closePhoto {
+  position: absolute;
+  right: max(18px, env(safe-area-inset-right));
+  top: calc(18px + env(safe-area-inset-top));
+  z-index: 3;
+  width: 42px;
+  height: 42px;
+  padding: 0;
+  border-radius: 50%;
+  background: rgb(255 255 255 / 20%);
+  color: #ffffff;
+  font-size: 30px;
+  line-height: 42px;
+}
+
+/* Dynamically injected gallery from app.js */
+#galleryDialog {
+  width: min(92vw, 760px);
+  padding: 20px;
+}
+
+#allPhotosGrid {
+  grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)) !important;
+  max-height: min(65vh, 620px) !important;
+  padding: 2px;
+}
+
+#fullPhotoDialog {
+  width: 100vw !important;
+  height: 100dvh !important;
+  max-width: 100vw !important;
+  max-height: 100dvh !important;
+  margin: 0 !important;
+  overflow: hidden !important;
+  border-radius: 0 !important;
+}
+
+#fullPhotoDialog > div {
+  width: 100vw !important;
+  height: 100dvh !important;
+}
+
+#fullPhotoImage {
+  max-width: 95vw !important;
+  max-height: calc(100dvh - 110px) !important;
+}
+
+#backToGalleryBtn,
+#goToWaypointBtn {
+  max-width: calc(50vw - 24px);
+}
+
+@media (min-width: 700px) {
+  .mapViewport {
+    display: block;
+  }
+
+  .mapStage {
+    margin: auto;
+  }
+
+  .photoGrid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 520px) {
+  .toolbar {
+    padding: 7px;
+  }
+
+  .toolbar button {
+    min-height: 40px;
+    padding: 9px 12px;
+  }
+
+  .dialog {
+    width: calc(100vw - 20px);
+    padding: 16px;
+  }
+
+  .dialogActions {
+    align-items: stretch;
+  }
+
+  .dialogActions .spacer {
+    display: none;
+  }
+
+  .dialogActions button {
+    flex: 1 1 auto;
+  }
+
+  #fullPhotoDialog > div > div:last-child {
+    right: 12px;
+    bottom: calc(16px + env(safe-area-inset-bottom)) !important;
+    left: 12px;
+    gap: 8px !important;
+  }
+
+  #backToGalleryBtn,
+  #goToWaypointBtn {
+    flex: 1 1 0;
+    max-width: none;
+    padding: 11px 10px !important;
+    font-size: 0.9rem !important;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}
