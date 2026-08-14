@@ -378,6 +378,140 @@ function showPhoto(src) {
   $("photoDialog")?.showModal();
 }
 
+// --- Dynamic GUI Injection (Gallery & Full Screen Viewer) ---
+function ensureGalleryDOM() {
+  // Inject "All Photos" button into toolbar if missing
+  if (!$("allPhotosBtn")) {
+    const allPhotosBtn = document.createElement("button");
+    allPhotosBtn.id = "allPhotosBtn";
+    allPhotosBtn.className = "secondary";
+    allPhotosBtn.textContent = "📷 All Photos";
+    
+    const targetParent = $("editBtn")?.parentElement || document.querySelector("header") || document.body;
+    targetParent.appendChild(allPhotosBtn);
+  }
+
+  // Inject Gallery Dialog if missing
+  if (!$("galleryDialog")) {
+    const dialog = document.createElement("dialog");
+    dialog.id = "galleryDialog";
+    dialog.innerHTML = `
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+        <h3 style="margin:0;">All Photos</h3>
+        <button id="closeGalleryBtn" class="secondary" style="padding:4px 10px;">✕</button>
+      </div>
+      <div id="allPhotosGrid" class="photoGrid" style="display:grid; grid-template-columns:repeat(auto-fill, minmax(90px, 1fr)); gap:10px; max-height:60vh; overflow-y:auto;"></div>
+    `;
+    document.body.appendChild(dialog);
+  }
+
+  // Inject Fullscreen Photo Dialog if missing
+  if (!$("fullPhotoDialog")) {
+    const dialog = document.createElement("dialog");
+    dialog.id = "fullPhotoDialog";
+    dialog.style.cssText = "padding:0; border:none; background:rgba(0,0,0,0.92); width:100vw; height:100vh; max-width:100vw; max-height:100vh; color:white; margin:0;";
+    dialog.innerHTML = `
+      <div style="position:relative; width:100vw; height:100vh; display:flex; flex-direction:column; align-items:center; justify-content:center;">
+        <img id="fullPhotoImage" style="max-width:95vw; max-height:calc(100vh - 100px); object-fit:contain; border-radius:4px;" />
+        <div style="position:absolute; bottom:24px; display:flex; gap:16px; z-index:100;">
+          <button id="backToGalleryBtn" class="secondary" style="padding:12px 20px; font-size:1rem; cursor:pointer;">← Back</button>
+          <button id="goToWaypointBtn" class="primary" style="padding:12px 20px; font-size:1rem; cursor:pointer;">📍 Go to Waypoint</button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(dialog);
+  }
+}
+
+// --- Gallery & Waypoint Focus Operations ---
+function openGallery() {
+  if (!state.project) return;
+  const grid = $("allPhotosGrid");
+  if (!grid) return;
+  
+  grid.innerHTML = "";
+  
+  const allPhotos = [];
+  state.project.markers.forEach(marker => {
+    (marker.photos || []).forEach(photo => {
+      allPhotos.push({ photo, marker });
+    });
+  });
+
+  if (!allPhotos.length) {
+    grid.innerHTML = "<p style='grid-column: 1/-1; color: #777; text-align: center;'>No photos attached to any waypoints.</p>";
+  } else {
+    allPhotos.forEach(({ photo, marker }) => {
+      const wrapper = document.createElement("div");
+      wrapper.className = "photoThumb";
+      wrapper.style.cssText = "position:relative; cursor:pointer; aspect-ratio:1; overflow:hidden; border-radius:6px; background:#111;";
+      
+      const img = document.createElement("img");
+      img.src = photo.data;
+      img.style.cssText = "width:100%; height:100%; object-fit:cover;";
+      
+      const label = document.createElement("div");
+      label.textContent = marker.name || "Waypoint";
+      label.style.cssText = "position:absolute; bottom:0; left:0; right:0; background:rgba(0,0,0,0.7); color:white; font-size:10px; padding:2px 4px; text-overflow:ellipsis; overflow:hidden; white-space:nowrap;";
+
+      wrapper.append(img, label);
+      wrapper.onclick = () => openFullScreenPhoto(photo, marker);
+      grid.append(wrapper);
+    });
+  }
+
+  $("galleryDialog")?.showModal();
+}
+
+function openFullScreenPhoto(photo, marker) {
+  const fullImg = $("fullPhotoImage");
+  if (fullImg) fullImg.src = photo.data;
+
+  const backBtn = $("backToGalleryBtn");
+  if (backBtn) {
+    backBtn.onclick = () => {
+      $("fullPhotoDialog")?.close();
+    };
+  }
+
+  const goBtn = $("goToWaypointBtn");
+  if (goBtn) {
+    goBtn.onclick = () => focusOnWaypoint(marker.id);
+  }
+
+  $("fullPhotoDialog")?.showModal();
+}
+
+function focusOnWaypoint(markerId) {
+  const marker = state.project?.markers.find(m => m.id === markerId);
+  if (!marker || !mapViewport) return;
+
+  // 1. Close all modals
+  $("fullPhotoDialog")?.close();
+  $("galleryDialog")?.close();
+
+  // 2. Set zoom to a focused 2.5x magnification
+  const targetScale = Math.max(state.scale, 2.5);
+  state.scale = targetScale;
+  applyScale();
+
+  // 3. Compute absolute stage pixels for marker position
+  const targetX = marker.x * (state.baseWidth * state.scale);
+  const targetY = marker.y * (state.baseHeight * state.scale);
+
+  // 4. Center the coordinate in the scrollable mapViewport
+  const scrollLeft = targetX - (mapViewport.clientWidth / 2);
+  const scrollTop = targetY - (mapViewport.clientHeight / 2);
+
+  mapViewport.scrollTo({
+    left: Math.max(0, scrollLeft),
+    top: Math.max(0, scrollTop),
+    behavior: "smooth"
+  });
+
+  setStatus(`Centered on: ${marker.name || "Waypoint"}`);
+}
+
 // --- Pinch to Zoom (Focal Point) ---
 let pinchStartDist = 0;
 let pinchStartScale = 1;
@@ -439,6 +573,9 @@ if (mapImage) {
 
 // --- Event Listeners & Safe Modal Handlers ---
 
+// Ensure DOM elements for Gallery exist
+ensureGalleryDOM();
+
 // Utility to close modals when touching/clicking outside on the backdrop
 const attachBackdropClose = (id) => {
   const dialog = $(id);
@@ -452,14 +589,17 @@ attachBackdropClose("markerDialog");
 attachBackdropClose("photoDialog");
 attachBackdropClose("projectsDialog");
 attachBackdropClose("projectDialog");
+attachBackdropClose("galleryDialog");
 
 // Explicit Modal Close Buttons
 $("closeMarkerBtn")?.addEventListener("click", (e) => { e.preventDefault(); $("markerDialog")?.close(); });
 $("closePhotoBtn")?.addEventListener("click", (e) => { e.preventDefault(); $("photoDialog")?.close(); });
 $("closeProjectsBtn")?.addEventListener("click", (e) => { e.preventDefault(); $("projectsDialog")?.close(); });
 $("closeProjectBtn")?.addEventListener("click", (e) => { e.preventDefault(); $("projectDialog")?.close(); });
+$("closeGalleryBtn")?.addEventListener("click", (e) => { e.preventDefault(); $("galleryDialog")?.close(); });
 
 // Main Application Buttons
+$("allPhotosBtn")?.addEventListener("click", openGallery);
 $("newProjectBtn")?.addEventListener("click", newProject);
 $("newFromListBtn")?.addEventListener("click", () => { $("projectsDialog")?.close(); newProject(); });
 $("projectsBtn")?.addEventListener("click", () => { $("projectsDialog")?.showModal(); loadProjects(); });
@@ -477,7 +617,7 @@ if ($("mapFile")) {
 
 if ($("projectName")) {
   $("projectName").oninput = () => {
-    if ($("createBtn")) $("createBtn").disabled = !state.tempMap || !$("projectName").value.trim();
+    if ($("createBtn")) $("createBtn").disabled = !state.tempMap || !$("projectName")?.value.trim();
   };
 }
 
