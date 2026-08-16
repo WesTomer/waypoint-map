@@ -71,6 +71,16 @@ async function dbAll() {
   });
 }
 
+async function dbDelete(id) {
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction("projects", "readwrite");
+    tx.objectStore("projects").delete(id);
+    tx.oncomplete = resolve;
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
 // --- File Handling ---
 function fileToDataURL(file) {
   return new Promise((resolve, reject) => {
@@ -106,20 +116,43 @@ function renderProjectList() {
   state.projects.sort((a, b) => b.updated.localeCompare(a.updated)).forEach(project => {
     const row = document.createElement("div");
     row.className = "projectItem";
+    row.style.cssText = "display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.08);";
     row.innerHTML = `
       <div>
         <strong>${esc(project.name)}</strong>
         <div class="fileName">${project.markers.length} marker${project.markers.length === 1 ? "" : "s"}</div>
       </div>
+      <div style="display: flex; gap: 8px; align-items: center;">
+        <button class="secondary openBtn">Open</button>
+        <button class="danger deleteBtn" title="Delete Project" style="padding: 6px 12px; background: #e63946; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">✕</button>
+      </div>
     `;
-    const openBtn = document.createElement("button");
-    openBtn.className = "secondary";
-    openBtn.textContent = "Open";
+
+    const openBtn = row.querySelector(".openBtn");
     openBtn.onclick = () => {
       $("projectsDialog")?.close();
       openProject(project.id);
     };
-    row.append(openBtn);
+
+    const deleteBtn = row.querySelector(".deleteBtn");
+    deleteBtn.onclick = async (e) => {
+      e.stopPropagation();
+      const confirmDelete = confirm(`Are you sure you want to delete "${project.name}"?\n\nThis will permanently remove the map, all waypoints, and attached photos.`);
+      if (!confirmDelete) return;
+
+      await dbDelete(project.id);
+      state.projects = await dbAll();
+      renderProjectList();
+
+      if (state.project?.id === project.id) {
+        state.project = null;
+        mapSection?.classList.add("hidden");
+        emptyState?.classList.remove("hidden");
+        if ($("projectTitle")) $("projectTitle").textContent = "";
+        setStatus("Project deleted.");
+      }
+    };
+
     list.append(row);
   });
 }
@@ -405,15 +438,15 @@ function ensureGalleryDOM() {
     document.body.appendChild(dialog);
   }
 
-  // Inject Fullscreen Photo Dialog if missing
+  // Inject Fullscreen Photo Dialog with z-index and bottom safe-area offset
   if (!$("fullPhotoDialog")) {
     const dialog = document.createElement("dialog");
     dialog.id = "fullPhotoDialog";
-    dialog.style.cssText = "padding:0; border:none; background:rgba(0,0,0,0.92); width:100vw; height:100vh; max-width:100vw; max-height:100vh; color:white; margin:0;";
+    dialog.style.cssText = "padding:0; border:none; background:rgba(0,0,0,0.92); width:100vw; height:100vh; max-width:100vw; max-height:100vh; color:white; margin:0; z-index:9999;";
     dialog.innerHTML = `
       <div style="position:relative; width:100vw; height:100vh; display:flex; flex-direction:column; align-items:center; justify-content:center;">
-        <img id="fullPhotoImage" style="max-width:95vw; max-height:calc(100vh - 100px); object-fit:contain; border-radius:4px;" />
-        <div style="position:absolute; bottom:24px; display:flex; gap:16px; z-index:100;">
+        <img id="fullPhotoImage" style="max-width:95vw; max-height:calc(100vh - 140px); object-fit:contain; border-radius:4px;" />
+        <div style="position:absolute; bottom:calc(32px + env(safe-area-inset-bottom, 0px)); display:flex; gap:16px; z-index:10000;">
           <button id="backToGalleryBtn" class="secondary" style="padding:12px 20px; font-size:1rem; cursor:pointer;">← Back</button>
           <button id="goToWaypointBtn" class="primary" style="padding:12px 20px; font-size:1rem; cursor:pointer;">📍 Go to Waypoint</button>
         </div>
