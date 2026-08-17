@@ -1,3 +1,4 @@
+Here is the complete updated app.js file with a color selector for waypoints included. It auto-injects a color picker into the waypoint editor dialog, persists marker.color to IndexedDB, and dynamically applies the chosen color to each map marker.
 import * as pdfjsLib from "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.10.38/pdf.min.mjs";
 pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.10.38/pdf.worker.min.mjs";
 
@@ -304,6 +305,9 @@ function renderMarkers() {
     el.className = "marker";
     el.style.left = (marker.x * 100) + "%";
     el.style.top = (marker.y * 100) + "%";
+    if (marker.color) {
+      el.style.backgroundColor = marker.color;
+    }
     el.title = marker.name || "Waypoint";
     
     if (marker.name) {
@@ -331,7 +335,7 @@ function addMarkerAt(e) {
   if (x < 0 || x > 1 || y < 0 || y > 1) return;
   
   const newMarker = { 
-    id: uid(), x, y, name: "", notes: "", photos: [], 
+    id: uid(), x, y, name: "", notes: "", color: "#e63946", photos: [], 
     created: now(), updated: now() 
   };
   
@@ -344,6 +348,27 @@ function addMarkerAt(e) {
   openMarker(newMarker.id);
 }
 
+function ensureMarkerColorDOM() {
+  if ($("markerColor")) return;
+  const dialog = $("markerDialog");
+  if (!dialog) return;
+
+  const colorContainer = document.createElement("div");
+  colorContainer.id = "markerColorContainer";
+  colorContainer.style.cssText = "display: flex; align-items: center; justify-content: space-between; margin: 10px 0;";
+  colorContainer.innerHTML = `
+    <label for="markerColor" style="font-size:0.9rem; font-weight:bold;">Waypoint Color:</label>
+    <input type="color" id="markerColor" value="#e63946" style="border:none; width:40px; height:36px; border-radius:4px; cursor:pointer; background:none;">
+  `;
+
+  const notesInput = $("markerNotes");
+  if (notesInput && notesInput.parentElement) {
+    notesInput.parentElement.insertBefore(colorContainer, notesInput);
+  } else {
+    dialog.appendChild(colorContainer);
+  }
+}
+
 function openMarker(id) {
   const marker = state.project.markers.find(x => x.id === id);
   if (!marker) return;
@@ -351,13 +376,18 @@ function openMarker(id) {
   state.selectedMarkerId = id;
   if ($("markerDialogTitle")) $("markerDialogTitle").textContent = marker.name || "Waypoint";
   
+  // Inject Color Selector if missing in HTML
+  ensureMarkerColorDOM();
+
   // Set values
   if ($("markerName")) $("markerName").value = marker.name || "";
   if ($("markerNotes")) $("markerNotes").value = marker.notes || "";
+  if ($("markerColor")) $("markerColor").value = marker.color || "#e63946";
   
   // Lock or unlock inputs based on mode
   if ($("markerName")) $("markerName").readOnly = !state.isEditMode;
   if ($("markerNotes")) $("markerNotes").readOnly = !state.isEditMode;
+  if ($("markerColor")) $("markerColor").disabled = !state.isEditMode;
   
   // Hide or show action buttons based on mode
   $("saveMarkerBtn")?.classList.toggle("hidden", !state.isEditMode);
@@ -750,6 +780,7 @@ $("saveMarkerBtn")?.addEventListener("click", async (e) => {
   
   if ($("markerName")) marker.name = $("markerName").value.trim();
   if ($("markerNotes")) marker.notes = $("markerNotes").value.trim();
+  if ($("markerColor")) marker.color = $("markerColor").value;
   marker.updated = now();
   state.project.updated = now();
   
@@ -783,3 +814,4 @@ loadProjects().then(() => {
     openProject(state.projects.sort((a, b) => b.updated.localeCompare(a.updated))[0].id);
   }
 }).catch(console.error);
+
